@@ -41,7 +41,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             return;
         }
-
+        Debug.Log("Checking client positon");
         // Edge case for first call where no previous states have been stored yet
         if (previousTransformState != null)
         {
@@ -49,13 +49,21 @@ public class NetworkPlayerMovement : NetworkBehaviour
         }
 
         // Check if client and server agree on corresponding tick
-        HandleStates.TransformStateRW calculatedState = _transformStates.First(localState => serverState.tick == localState.tick);
-        if (calculatedState.finalPosition != serverState.finalPosition)
+        //HandleStates.TransformStateRW calculatedState = _transformStates.First(localState => serverState.tick == localState.tick);
+        HandleStates.TransformStateRW calculatedState = null;
+        for (int i = 0; i < _transformStates.Length; i++)
+        {
+            if (_transformStates[i] != null && _transformStates[i].tick == serverState.tick)
+            {
+                calculatedState = _transformStates[i];
+            }
+        }
+        if (calculatedState != null && calculatedState.finalPosition != serverState.finalPosition)
         {
             Debug.Log("Correcting client positon");
             // Then client is out of sync
             CorrectPlayerPosition(serverState);     // Teleport player at failed tick
-            ReplayMovesAfterTick(serverState);
+            //ReplayMovesAfterTick(serverState);
 
 
         }
@@ -233,16 +241,15 @@ public class NetworkPlayerMovement : NetworkBehaviour
         // TODO
         // Check for packet loss by checking if tick != previousTransformState Tick + 1
         // If missed packet, send packet again
-
-        if (tick != previousTransformState.tick + 1)
+        previousTransformState = currentServerTransformState.Value;
+        currentServerTransformState.Value = transformState;
+        if (previousTransformState != null && tick != previousTransformState.tick + 1)
         {
             // Then packet loss has occured
             print("Packet loss");
             print(tick);
+            print(previousTransformState.tick + 1);
         }
-
-        previousTransformState = currentServerTransformState.Value;
-        currentServerTransformState.Value = transformState;
 
     }
 }
