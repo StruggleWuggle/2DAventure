@@ -31,7 +31,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     private HandleStates.TransformStateRW[] _transformStates = new HandleStates.TransformStateRW[buffer];
 
     // For server based rollback
-    public NetworkVariable<HandleStates.TransformStateRW> currentServerTransformState = new();
+    public NetworkVariable<HandleStates.TransformStateRW> currentServerTransformState = new NetworkVariable<HandleStates.TransformStateRW>(default, NetworkVariableReadPermission.Everyone);
     public HandleStates.TransformStateRW previousTransformState;
 
     private void OnServerStateChanged(HandleStates.TransformStateRW previousState, HandleStates.TransformStateRW serverState)
@@ -199,6 +199,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
         if (tickDeltaTime > tickRate)
         {
             rb.position = currentServerTransformState.Value.finalPosition;
+            //rb.position = new Vector2(.5f, .5f);
         }
 
         tickDeltaTime -= tickRate;
