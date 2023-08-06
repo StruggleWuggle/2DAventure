@@ -12,7 +12,7 @@ public class HandleStates : MonoBehaviour
         public float moveX;
         public float moveY;
     }
-    public class TranssformStateRW : INetworkSerializable
+    public class TransformStateRW : INetworkSerializable
     {
         public int tick;
         public Vector2 finalPosition;
