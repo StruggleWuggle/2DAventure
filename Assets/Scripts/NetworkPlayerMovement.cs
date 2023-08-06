@@ -32,12 +32,6 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public NetworkVariable<HandleStates.TransformStateRW> currentServerTransformState = new();
     public HandleStates.TransformStateRW previousTransformState;
 
-    // Start is called before the first frame update
-    void Start()
-    {
-
-    }
-
     private void OnServerStateChanged(HandleStates.TransformStateRW previousValue, HandleStates.TransformStateRW newValue)
     {
         previousTransformState= previousValue;
@@ -50,12 +44,6 @@ public class NetworkPlayerMovement : NetworkBehaviour
     // Update is called once per frame
     void Update()
     {
-        // Check if object has correct ownership
-        if (!IsOwner)
-        {
-            //return;
-        }
-
         if (IsClient && IsLocalPlayer)
         {
             float moveX = Input.GetAxisRaw("Horizontal");
@@ -66,14 +54,6 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             UpdateOtherPlayers();
         }
-    }
-    void UpdateServer()
-    {
-        float moveX = Input.GetAxisRaw("Horizontal");
-        float moveY = Input.GetAxisRaw("Vertical");
-
-        Vector2 movementVector = new Vector2(moveX, moveY);
-        rb.velocity = movementVector * MoveSpeed.Value;
     }
     public void ProcessLocalPlayerMovement(float _moveX, float _moveY)
     {
@@ -124,14 +104,14 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public void UpdateOtherPlayers()
     {
         tickDeltaTime += Time.deltaTime;
-        print(tickDeltaTime);
-        //if (tickDeltaTime > tickRate && currentServerTransformState.Value.isMoving)
+        //if (tickDeltaTime > tickRate && currentServerTransformState.Value.isMoving) //
         if (tickDeltaTime > tickRate)
         {
+            //Vector2 currentPosition = currentServerTransformState.Value.finalPosition;
             rb.position = currentServerTransformState.Value.finalPosition;
         }
 
-        //tickDeltaTime -= tickRate;
+        tickDeltaTime -= tickRate;
         if (tick >= buffer)
         {
             tick = 0;
@@ -154,6 +134,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
             finalPosition = rb.position,
             isMoving = true,
         };
+
         previousTransformState = currentServerTransformState.Value;
         currentServerTransformState.Value = transformState;
 
