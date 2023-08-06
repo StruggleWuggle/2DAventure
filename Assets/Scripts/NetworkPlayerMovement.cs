@@ -1,8 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Netcode;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class NetworkPlayerMovement : NetworkBehaviour
@@ -34,99 +32,10 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public NetworkVariable<HandleStates.TransformStateRW> currentServerTransformState = new();
     public HandleStates.TransformStateRW previousTransformState;
 
-    private void OnServerStateChanged(HandleStates.TransformStateRW previousState, HandleStates.TransformStateRW serverState)
+    private void OnServerStateChanged(HandleStates.TransformStateRW previousValue, HandleStates.TransformStateRW newValue)
     {
-        // Check and reconcile local client predicted movement with server movement
-        if (!IsLocalPlayer)
-        {
-            return;
-        }
-
-        // Edge case for first call where no previous states have been stored yet
-        if (previousTransformState != null)
-        {
-            previousTransformState = serverState;
-        }
-
-        // Check if client and server agree on corresponding tick
-        HandleStates.TransformStateRW calculatedState = _transformStates.First(localState => serverState.tick == localState.tick);
-        if (calculatedState.finalPosition != serverState.finalPosition)
-        {
-            Debug.Log("Correcting client positon");
-            // Then client is out of sync
-            CorrectPlayerPosition(serverState);     // Teleport player at failed tick
-            ReplayMovesAfterTick(serverState);
-
-
-        }
-
-        previousTransformState = previousState;
+        previousTransformState= previousValue;
     }
-    private void CorrectPlayerPosition(HandleStates.TransformStateRW correctedState)
-    {
-        // Disable character movements TODO
-
-        // Teleport client
-        rb.position = correctedState.finalPosition;
-
-        // Find corresponding state in stored state array based on matching tick and update position value
-        for (int i = 0; i < _transformStates.Length; i++)
-        {
-            if (_transformStates[i].tick == correctedState.tick)
-            {
-                _transformStates[i] = correctedState;
-                break;
-            }
-        }
-    }
-
-    private void ReplayMovesAfterTick(HandleStates.TransformStateRW lastValidState)
-    {
-        // Get all states from stored state array that have a tick value greater than correctedState tick value
-        IDictionary<int, HandleStates.InputState> stateDict = new Dictionary<int, HandleStates.InputState>();
-        int maxTickValue = 0;
-        for (int i = 0; i < _inputStates.Length; i++)
-        {
-            if (_inputStates[i].tick > lastValidState.tick)
-            {
-                // Append dictionary
-                stateDict[_inputStates[i].tick] = _inputStates[i];
-
-                // Update largest tick value encountered
-                if (maxTickValue == 0 || _inputStates[i].tick > maxTickValue)
-                {
-                    maxTickValue = _inputStates[i].tick;
-                }
-            }
-
-        }
-
-        // Execute corresponding input states 
-        for (int i = lastValidState.tick + 1; i <= maxTickValue; i++)
-        {
-            Move(stateDict[i].moveX, stateDict[i].moveY);
-
-            // Get new transform state
-            HandleStates.TransformStateRW updatedTransformState = new HandleStates.TransformStateRW()
-            {
-                tick = stateDict[i].tick,
-                finalPosition = rb.position,
-                isMoving = true,
-            };
-
-            // Update corresponding transform state array
-            for (int j = 0; j < _transformStates.Length; j++)
-            {
-                if (_transformStates[j].tick == stateDict[i].tick)
-                {
-                    _transformStates[j] = updatedTransformState;
-                    break;
-                }
-            }
-        }
-
-    }
-
     private void OnEnable()
     {
         currentServerTransformState.OnValueChanged += OnServerStateChanged;
@@ -198,6 +107,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
         //if (tickDeltaTime > tickRate && currentServerTransformState.Value.isMoving) //
         if (tickDeltaTime > tickRate)
         {
+            //Vector2 currentPosition = currentServerTransformState.Value.finalPosition;
             rb.position = currentServerTransformState.Value.finalPosition;
         }
 
@@ -224,9 +134,6 @@ public class NetworkPlayerMovement : NetworkBehaviour
             finalPosition = rb.position,
             isMoving = true,
         };
-        // TODO
-        // Check for packet loss by checking if tick != previousTransformState Tick + 1
-        // If missed packet, send packet again
 
         previousTransformState = currentServerTransformState.Value;
         currentServerTransformState.Value = transformState;
