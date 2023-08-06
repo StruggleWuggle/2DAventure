@@ -49,30 +49,18 @@ public class NetworkPlayerMovement : NetworkBehaviour
         }
 
         // Check if client and server agree on corresponding tick
-        //HandleStates.TransformStateRW calculatedState = _transformStates.First(localState => localState.tick == serverState.tick);
-        HandleStates.TransformStateRW calculatedState = previousState;
-        for (int i = 0; i < _transformStates.Length; i++)
-        {
-            if (_transformStates[i] == null)
-            {
-                continue;
-            }
-            if (_transformStates[i].tick == serverState.tick)
-            {
-                calculatedState = _transformStates[i];
-                break;
-            }
-        }
-
+        /*
+        HandleStates.TransformStateRW calculatedState = _transformStates.First(localState => serverState.tick == localState.tick);
         if (calculatedState.finalPosition != serverState.finalPosition)
         {
             Debug.Log("Correcting client positon");
             // Then client is out of sync
-            CorrectPlayerPosition(serverState);     // Teleport player at failed tick
-            ReplayMovesAfterTick(serverState);
+            //CorrectPlayerPosition(serverState);     // Teleport player at failed tick
+            //ReplayMovesAfterTick(serverState);
 
 
         }
+        */
 
         previousTransformState = previousState;
     }
@@ -169,7 +157,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
             int bufferIndex = tick % buffer;
 
             MoveServerRpc(_moveX, _moveY, tick);    // Send out move input to server
-            Move(_moveX, _moveY);    // Client side movement only
+            //Move(_moveX, _moveY);    // Client side movement only
 
             // Update states and historic state array
             HandleStates.InputState inputState = new()
@@ -202,8 +190,14 @@ public class NetworkPlayerMovement : NetworkBehaviour
     }
     public void Move(float moveX, float moveY)
     {
+        //rb.isKinematic= false;
         Vector2 movementVector = new Vector2(moveX, moveY);
-        rb.velocity = movementVector * MoveSpeed.Value;
+        //rb.AddForce(movementVector * MoveSpeed.Value);
+        rb.velocity = movementVector * MoveSpeed.Value * 10;
+        if (moveX > 0)
+        {
+            print(movementVector);
+        }
     }
 
     public void UpdateOtherPlayers()
@@ -232,8 +226,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
     // --- ServerRPCs ---
 
-    //[ServerRpc]
-    [ServerRpc(RequireOwnership = false)]
+    [ServerRpc]
+    //[ServerRpc(RequireOwnership = false)]
     public void MoveServerRpc(float moveX, float moveY, int tick)
     {
         Move(moveX, moveY);
