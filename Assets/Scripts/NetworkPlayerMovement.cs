@@ -49,7 +49,21 @@ public class NetworkPlayerMovement : NetworkBehaviour
         }
 
         // Check if client and server agree on corresponding tick
-        HandleStates.TransformStateRW calculatedState = _transformStates.First(localState => serverState.tick == localState.tick);
+        //HandleStates.TransformStateRW calculatedState = _transformStates.First(localState => localState.tick == serverState.tick);
+        HandleStates.TransformStateRW calculatedState = previousState;
+        for (int i = 0; i < _transformStates.Length; i++)
+        {
+            if (_transformStates[i] == null)
+            {
+                continue;
+            }
+            if (_transformStates[i].tick == serverState.tick)
+            {
+                calculatedState = _transformStates[i];
+                break;
+            }
+        }
+
         if (calculatedState.finalPosition != serverState.finalPosition)
         {
             Debug.Log("Correcting client positon");
