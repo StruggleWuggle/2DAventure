@@ -194,13 +194,15 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
     public void UpdateOtherPlayers()
     {
+        // Method to upgate rigidbody positions of all other players
+
         tickDeltaTime += Time.deltaTime;
 
         if (currentServerTransformState.Value == null)
         {
-            //return;
+            return;
         }
-        if (tickDeltaTime > tickRate)
+        if (tickDeltaTime > tickRate && currentServerTransformState.Value.isMoving)
         {
             rb.position = currentServerTransformState.Value.finalPosition;
 
@@ -231,6 +233,13 @@ public class NetworkPlayerMovement : NetworkBehaviour
         // TODO
         // Check for packet loss by checking if tick != previousTransformState Tick + 1
         // If missed packet, send packet again
+
+        if (tick != previousTransformState.tick + 1)
+        {
+            // Then packet loss has occured
+            print("Packet loss");
+            print(tick);
+        }
 
         previousTransformState = currentServerTransformState.Value;
         currentServerTransformState.Value = transformState;
