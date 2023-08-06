@@ -174,7 +174,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
             _inputStates[bufferIndex] = inputState;
             _transformStates[bufferIndex] = transformState;
 
-            // Reduce tick rate back down and prevent overflow of buffer
+            //Reduce tick rate back down and prevent overflow of buffer
             tickDeltaTime -= tickRate;
             if (tick >= buffer)
             {
@@ -195,21 +195,24 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public void UpdateOtherPlayers()
     {
         tickDeltaTime += Time.deltaTime;
-        //if (tickDeltaTime > tickRate && currentServerTransformState.Value.isMoving) //
+
+        if (currentServerTransformState.Value == null)
+        {
+            //return;
+        }
         if (tickDeltaTime > tickRate)
         {
             rb.position = currentServerTransformState.Value.finalPosition;
-            //rb.position = new Vector2(.5f, .5f);
-        }
 
-        tickDeltaTime -= tickRate;
-        if (tick >= buffer)
-        {
-            tick = 0;
-        }
-        else
-        {
-            tick++;
+            tickDeltaTime -= tickRate;
+            if (tick >= buffer)
+            {
+                tick = 0;
+            }
+            else
+            {
+                tick++;
+            }
         }
     }
 
