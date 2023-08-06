@@ -26,11 +26,11 @@ public class NetworkPlayerMovement : NetworkBehaviour
     private const int buffer = 1024;
 
     private HandleStates.InputState[] _inputStates = new HandleStates.InputState[buffer];
-    private HandleStates.TranssformStateRW[] _transformStates = new HandleStates.TranssformStateRW[buffer];
+    private HandleStates.TransformStateRW[] _transformStates = new HandleStates.TransformStateRW[buffer];
 
     // For server based rollback
-    public NetworkVariable<HandleStates.TranssformStateRW> currentServerTransformState = new();
-    public HandleStates.TranssformStateRW previousTransformState;
+    public NetworkVariable<HandleStates.TransformStateRW> currentServerTransformState = new();
+    public HandleStates.TransformStateRW previousTransformState;
 
     // Start is called before the first frame update
     void Start()
@@ -38,7 +38,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
     }
 
-    private void OnServerStateChanged(HandleStates.TranssformStateRW previousValue, HandleStates.TranssformStateRW newValue)
+    private void OnServerStateChanged(HandleStates.TransformStateRW previousValue, HandleStates.TransformStateRW newValue)
     {
         previousTransformState= previousValue;
     }
@@ -94,7 +94,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
                 moveY = _moveY,
             };
 
-            HandleStates.TranssformStateRW transformState = new()
+            HandleStates.TransformStateRW transformState = new()
             {
                 tick = tick,
                 finalPosition = rb.position,
@@ -124,7 +124,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public void UpdateOtherPlayers()
     {
         tickDeltaTime += Time.deltaTime;
-        print(tickDeltaTime);
+        //print(tickDeltaTime);
         //if (tickDeltaTime > tickRate && currentServerTransformState.Value.isMoving)
         if (tickDeltaTime > tickRate)
         {
@@ -148,7 +148,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public void MoveServerRpc(float moveX, float moveY, int tick)
     {
         Move(moveX, moveY);
-        HandleStates.TranssformStateRW transformState = new()
+
+        HandleStates.TransformStateRW transformState = new()
         {
             tick = tick,
             finalPosition = rb.position,
