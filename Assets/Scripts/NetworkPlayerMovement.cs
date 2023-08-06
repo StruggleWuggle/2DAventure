@@ -198,11 +198,14 @@ public class NetworkPlayerMovement : NetworkBehaviour
         //if (tickDeltaTime > tickRate && currentServerTransformState.Value.isMoving) //
         if (tickDeltaTime > tickRate)
         {
-            rb.position = currentServerTransformState.Value.finalPosition;
+            if (currentServerTransformState.Value != null)
+            {
+                rb.position = currentServerTransformState.Value.finalPosition;
+            }
             //rb.position = new Vector2(.5f, .5f);
         }
 
-        tickDeltaTime -= tickRate;
+        //tickDeltaTime -= tickRate;
         if (tick >= buffer)
         {
             tick = 0;
@@ -215,7 +218,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
     // --- ServerRPCs ---
 
-    [ServerRpc]
+    //[ServerRpc]
+    [ServerRpc(RequireOwnership = false)]
     public void MoveServerRpc(float moveX, float moveY, int tick)
     {
         Move(moveX, moveY);
@@ -232,5 +236,11 @@ public class NetworkPlayerMovement : NetworkBehaviour
         previousTransformState = currentServerTransformState.Value;
         currentServerTransformState.Value = transformState;
 
+
+    }
+    [ClientRpc]
+    public void UpdatePlayerPositionsClientRpc()
+    {
+        rb.position = currentServerTransformState.Value.finalPosition;
     }
 }
