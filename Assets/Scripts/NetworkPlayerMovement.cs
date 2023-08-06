@@ -26,6 +26,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
     private float tickRate = 1f / 60f;
     private float tickDeltaTime = 0;
     private const int buffer = 1024;
+    public float userMoveX = 0;
+    public float userMoveY = 0;
 
     private HandleStates.InputState[] _inputStates = new HandleStates.InputState[buffer];
     private HandleStates.TransformStateRW[] _transformStates = new HandleStates.TransformStateRW[buffer];
@@ -41,7 +43,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             return;
         }
-        Debug.Log("Checking client positon");
+        //Debug.Log("Checking client positon");
         // Edge case for first call where no previous states have been stored yet
         if (previousTransformState != null)
         {
@@ -60,12 +62,10 @@ public class NetworkPlayerMovement : NetworkBehaviour
         }
         if (calculatedState != null && calculatedState.finalPosition != serverState.finalPosition)
         {
-            Debug.Log("Correcting client positon");
+            //Debug.Log("Correcting client positon");
             // Then client is out of sync
-            CorrectPlayerPosition(serverState);     // Teleport player at failed tick
+            //CorrectPlayerPosition(serverState);     // Teleport player at failed tick
             //ReplayMovesAfterTick(serverState);
-
-
         }
 
         previousTransformState = previousState;
@@ -147,6 +147,14 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             float moveX = Input.GetAxisRaw("Horizontal");
             float moveY = Input.GetAxisRaw("Vertical");
+            if (moveX != userMoveX || moveY != userMoveY)
+            {
+                //ProcessLocalPlayerMovement(moveX, moveY);
+                print("Movement change");
+            }
+            userMoveX= moveX;
+            userMoveY= moveY;
+
             ProcessLocalPlayerMovement(moveX, moveY);
         }
         else
@@ -196,8 +204,9 @@ public class NetworkPlayerMovement : NetworkBehaviour
     }
     public void Move(float moveX, float moveY)
     {
-        Vector2 movementVector = new Vector2(moveX, moveY);
-        rb.velocity = movementVector * MoveSpeed.Value;
+        Vector2 movementVector = new Vector2(moveX, moveY).normalized;
+        rb.AddForce(movementVector * MoveSpeed.Value * .9f);
+        //rb.velocity = movementVector * MoveSpeed.Value * tickRate * 100;
     }
 
     public void UpdateOtherPlayers()
@@ -243,7 +252,16 @@ public class NetworkPlayerMovement : NetworkBehaviour
         // If missed packet, send packet again
         previousTransformState = currentServerTransformState.Value;
         currentServerTransformState.Value = transformState;
-        if (previousTransformState != null && tick != previousTransformState.tick + 1)
+        int tickToBeCompared = 0;
+        if (previousTransformState != null)
+        {
+            tickToBeCompared = previousTransformState.tick + 1;
+            if (tickToBeCompared > buffer)
+            {
+                tickToBeCompared = 0;
+            }
+        }
+        if (tick != tickToBeCompared)
         {
             // Then packet loss has occured
             print("Packet loss");
