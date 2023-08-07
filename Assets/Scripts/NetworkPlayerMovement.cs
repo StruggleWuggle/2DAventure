@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Unity.Netcode;
 using Unity.VisualScripting;
@@ -34,7 +35,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     // For server based rollback
     public NetworkVariable<HandleStates.TransformStateRW> currentServerTransformState = new NetworkVariable<HandleStates.TransformStateRW>(default, NetworkVariableReadPermission.Everyone);
     public HandleStates.TransformStateRW previousTransformState;
-    private float ROLLBACK_THRESHOLD = .1f;
+    private float ROLLBACK_THRESHOLD = .01f;
 
     // Animations
     Animator animator;
@@ -48,9 +49,10 @@ public class NetworkPlayerMovement : NetworkBehaviour
             return;
         }
         // Edge case for first call where no previous states have been stored yet
-        if (previousTransformState != null)
+        if (previousTransformState == null)
         {
             previousTransformState = serverState;
+            return;
         }
 
         // Check if client and server agree on corresponding tick
@@ -64,19 +66,32 @@ public class NetworkPlayerMovement : NetworkBehaviour
                 break;
             }
         }
+        Stopwatch stopwatch= Stopwatch.StartNew();
+        stopwatch.Start();
 
         if (calculatedState != null)
         {
-            CorrectPlayerPosition(serverState); // For some reasoning moving it into the if statement below causes a huge delay
+            //CorrectPlayerPosition(serverState); // For some reasoning moving it into the if statement below causes a huge delay
+            Stopwatch innerwatch = Stopwatch.StartNew();
+            innerwatch.Start();
             if (Mathf.Abs(calculatedState.finalPosition.x - serverState.finalPosition.x) > ROLLBACK_THRESHOLD ||
                 Mathf.Abs(calculatedState.finalPosition.y - serverState.finalPosition.y) > ROLLBACK_THRESHOLD)
             {
                 // Then client is out of sync
+                print(Mathf.Abs(calculatedState.finalPosition.x - serverState.finalPosition.x));
+                print(Mathf.Abs(calculatedState.finalPosition.y - serverState.finalPosition.y));
+
                 //Debug.Log("Correcting client positon");
-                //CorrectPlayerPosition(serverState);     // Teleport player at failed tick
+                CorrectPlayerPosition(serverState);     // Teleport player at failed tick
                 //ReplayMovesAfterTick(serverState);
             }
+            print("Inner watch");
+            innerwatch.Stop();
+            print(innerwatch.Elapsed);
         }
+        stopwatch.Stop();
+        print("Outer watch");
+        print(stopwatch.Elapsed);
 
         previousTransformState = previousState;
         HandleStates.TransformStateRW newTransformState = new()
@@ -89,8 +104,11 @@ public class NetworkPlayerMovement : NetworkBehaviour
     }
     private void CorrectPlayerPosition(HandleStates.TransformStateRW correctedState)
     {
-        Debug.Log("Teleporting");
+        print("Teleporting");
         // Teleport client
+
+        rb.isKinematic = true;
+
         rb.position = correctedState.finalPosition;
 
         // Find corresponding state in stored state array based on matching tick and update position value
@@ -102,6 +120,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
                 break;
             }
         }
+
+        rb.isKinematic = false;
     }
 
     private void ReplayMovesAfterTick(HandleStates.TransformStateRW lastValidState)
@@ -241,12 +261,10 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             if (moveX < 0)
             {
-                //spriteRenderer.flipX = true;
                 FlipSpriteClientRpc(true);
             }
             else
             {
-                //spriteRenderer.flipX = false;
                 FlipSpriteClientRpc(false);
             }
             animator.SetBool("isMoving", true);

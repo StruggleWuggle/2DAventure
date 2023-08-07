@@ -6,7 +6,7 @@ using Unity.Netcode;
 
 public class CameraManager : NetworkBehaviour
 {
-    [SerializeField] private CinemachineVirtualCamera camera;
+    [SerializeField] private new CinemachineVirtualCamera camera;
     // Start is called before the first frame update
     void Start()
     {
