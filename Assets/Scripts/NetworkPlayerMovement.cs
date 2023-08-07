@@ -14,7 +14,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public ContactFilter2D movementFilter;
 
     // Player stats
-    public NetworkVariable<float> MoveSpeed = new NetworkVariable<float>(20f);
+    public NetworkVariable<float> MoveSpeed = new NetworkVariable<float>(0.8f);
     public NetworkVariable<int> Health = new NetworkVariable<int>(100);
 
     // Physics
@@ -35,11 +35,24 @@ public class NetworkPlayerMovement : NetworkBehaviour
     // For server based rollback
     public NetworkVariable<HandleStates.TransformStateRW> currentServerTransformState = new NetworkVariable<HandleStates.TransformStateRW>(default, NetworkVariableReadPermission.Everyone);
     public HandleStates.TransformStateRW previousTransformState;
-    private float ROLLBACK_THRESHOLD = .05f;
+    private float ROLLBACK_THRESHOLD = .02f;
 
     // Animations
     Animator animator;
     SpriteRenderer spriteRenderer;
+
+    // Set player keys here
+    KeyCode HoldToRun = KeyCode.LeftShift;
+    KeyCode Attack = KeyCode.Space;
+
+
+    public enum animationState
+    {
+        Idle,
+        Walking,
+        Running,
+        Attacking
+    }
 
     // Debugging
     public float timeSincePositionCheck = 0f;
@@ -210,6 +223,14 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
             timeSincePositionCheck += 1f;
             //print(timeSincePositionCheck);
+
+            bool isAttacking = Input.GetKey(Attack);
+            if (isAttacking)
+            {
+                animator.SetInteger("stateManager", (int)animationState.Attacking);
+            }
+
+
         }
         else
         {
@@ -263,7 +284,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
         // Animate if moving
         if (Vector2.zero == movementVector)
         {
-            animator.SetBool("isMoving", false);
+            animator.SetInteger("stateManager", (int)animationState.Idle);
+            return;
         }
         else
         {
@@ -275,11 +297,18 @@ public class NetworkPlayerMovement : NetworkBehaviour
             {
                 FlipSpriteClientRpc(false);
             }
-            animator.SetBool("isMoving", true);
+            if (Input.GetKey(HoldToRun))
+            {
+                animator.SetInteger("stateManager", (int)animationState.Running);
+                movementVector = movementVector * MoveSpeed.Value * 2;
+            }
+            else
+            {
+                animator.SetInteger("stateManager", (int)animationState.Walking);
+                movementVector = movementVector * MoveSpeed.Value;
+            }
+            rb.AddForce(movementVector);
         }
-
-        movementVector = movementVector * MoveSpeed.Value * .9f;
-        rb.AddForce(movementVector);
     }
 
     public void UpdateOtherPlayers()
