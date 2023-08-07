@@ -26,8 +26,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     private float tickRate = 1f / 60f;
     private float tickDeltaTime = 0;
     private const int buffer = 1024;
-    public float userMoveX = 0;
-    public float userMoveY = 0;
+
 
     private HandleStates.InputState[] _inputStates = new HandleStates.InputState[buffer];
     private HandleStates.TransformStateRW[] _transformStates = new HandleStates.TransformStateRW[buffer];
@@ -36,6 +35,9 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public NetworkVariable<HandleStates.TransformStateRW> currentServerTransformState = new NetworkVariable<HandleStates.TransformStateRW>(default, NetworkVariableReadPermission.Everyone);
     public HandleStates.TransformStateRW previousTransformState;
     private float ROLLBACK_THRESHOLD = .1f;
+
+    // Animations
+    Animator animator;
 
     private void OnServerStateChanged(HandleStates.TransformStateRW previousState, HandleStates.TransformStateRW serverState)
     {
@@ -163,6 +165,10 @@ public class NetworkPlayerMovement : NetworkBehaviour
     {
         currentServerTransformState.OnValueChanged += OnServerStateChanged;
     }
+    private void Start()
+    {
+        animator= GetComponent<Animator>();
+    }
 
     // Update is called once per frame
     void FixedUpdate()
@@ -171,10 +177,6 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             float moveX = Input.GetAxisRaw("Horizontal");
             float moveY = Input.GetAxisRaw("Vertical");
-
-            userMoveX= moveX;
-            userMoveY= moveY;
-
             ProcessLocalPlayerMovement(moveX, moveY);
         }
         else
@@ -225,6 +227,17 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public void Move(float moveX, float moveY)
     {
         Vector2 movementVector = new Vector2(moveX, moveY).normalized;
+
+        // Animate if moving
+        if (Vector2.zero == movementVector)
+        {
+            animator.SetBool("isMoving", false);
+        }
+        else
+        {
+            animator.SetBool("isMoving", true);
+        }
+
         movementVector = movementVector * MoveSpeed.Value * .9f;
         rb.AddForce(movementVector);
     }
