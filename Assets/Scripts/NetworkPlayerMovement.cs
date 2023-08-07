@@ -38,6 +38,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
     // Animations
     Animator animator;
+    SpriteRenderer spriteRenderer;
 
     private void OnServerStateChanged(HandleStates.TransformStateRW previousState, HandleStates.TransformStateRW serverState)
     {
@@ -167,7 +168,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
     }
     private void Start()
     {
-        animator= GetComponent<Animator>();
+        animator = GetComponent<Animator>();
+        spriteRenderer = GetComponent<SpriteRenderer>();   
     }
 
     // Update is called once per frame
@@ -237,6 +239,14 @@ public class NetworkPlayerMovement : NetworkBehaviour
         }
         else
         {
+            if (moveX < 0)
+            {
+                spriteRenderer.flipX = true;
+            }
+            else
+            {
+                spriteRenderer.flipX = false;
+            }
             animator.SetBool("isMoving", true);
         }
 
