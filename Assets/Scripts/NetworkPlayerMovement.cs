@@ -35,7 +35,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     // For server based rollback
     public NetworkVariable<HandleStates.TransformStateRW> currentServerTransformState = new NetworkVariable<HandleStates.TransformStateRW>(default, NetworkVariableReadPermission.Everyone);
     public HandleStates.TransformStateRW previousTransformState;
-    private float ROLLBACK_THRESHOLD = .01f;
+    private float ROLLBACK_THRESHOLD = .05f;
 
     // Animations
     Animator animator;
@@ -66,6 +66,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
             if (_transformStates[i] != null && _transformStates[i].tick == serverState.tick)
             {
                 calculatedState = _transformStates[i];
+                print(calculatedState.tick);
+                print(serverState.tick);
                 break;
             }
         }
@@ -80,22 +82,30 @@ public class NetworkPlayerMovement : NetworkBehaviour
             {
                 timeSincePositionCheck = 0f;
                 // Then client is out of sync
-                print(Mathf.Abs(calculatedState.finalPosition.x - serverState.finalPosition.x));
-                print(Mathf.Abs(calculatedState.finalPosition.y - serverState.finalPosition.y));
-                //Debug.Log("Correcting client positon");
-                CorrectPlayerPosition(serverState);     // Teleport player at failed tick
+                print("Correcting client positon");
+
+                // Teleport player and update corresponding state register
+                rb.position = serverState.finalPosition;
+                // Find corresponding state in stored state array based on matching tick and update position value
+                for (int i = 0; i < _transformStates.Length; i++)
+                {
+                    if (_transformStates[i] != null && _transformStates[i].tick == serverState.tick)
+                    {
+                        //_transformStates[i+1] = serverState;
+                        break;
+                    }
+                }
+
+                // Replay moves after server tick
+                //ReplayMovesAfterTick(serverState);
+
+
+                //CorrectPlayerPosition(serverState);     // Teleport player at failed tick
                 //ReplayMovesAfterTick(serverState);
             }
         }
 
         previousTransformState = clientState;
-        HandleStates.TransformStateRW newTransformState = new()
-        {
-            tick = tick,
-            finalPosition = rb.position,
-            isMoving = true,
-        };
-        //currentServerTransformState.Value = newTransformState;
     }
     private void CorrectPlayerPosition(HandleStates.TransformStateRW correctedState)
     {
@@ -199,7 +209,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
             ProcessLocalPlayerMovement(moveX, moveY);
 
             timeSincePositionCheck += 1f;
-            print(timeSincePositionCheck);
+            //print(timeSincePositionCheck);
         }
         else
         {
