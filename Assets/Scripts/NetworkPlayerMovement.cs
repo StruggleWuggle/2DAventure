@@ -41,7 +41,10 @@ public class NetworkPlayerMovement : NetworkBehaviour
     Animator animator;
     SpriteRenderer spriteRenderer;
 
-    private void OnServerStateChanged(HandleStates.TransformStateRW previousState, HandleStates.TransformStateRW serverState)
+    // Debugging
+    public float timeSincePositionCheck = 0f;
+
+    private void OnServerStateChanged(HandleStates.TransformStateRW clientState, HandleStates.TransformStateRW serverState)
     {
         // Check and reconcile local client predicted movement with server movement
         if (!IsLocalPlayer || IsHost)
@@ -66,34 +69,26 @@ public class NetworkPlayerMovement : NetworkBehaviour
                 break;
             }
         }
-        Stopwatch stopwatch= Stopwatch.StartNew();
-        stopwatch.Start();
 
         if (calculatedState != null)
         {
+            //timeSincePositionCheck = 0f;
             //CorrectPlayerPosition(serverState); // For some reasoning moving it into the if statement below causes a huge delay
-            Stopwatch innerwatch = Stopwatch.StartNew();
-            innerwatch.Start();
-            if (Mathf.Abs(calculatedState.finalPosition.x - serverState.finalPosition.x) > ROLLBACK_THRESHOLD ||
-                Mathf.Abs(calculatedState.finalPosition.y - serverState.finalPosition.y) > ROLLBACK_THRESHOLD)
+            float deltaX = Mathf.Abs(calculatedState.finalPosition.x - serverState.finalPosition.x);
+            float deltaY = Mathf.Abs(calculatedState.finalPosition.y - serverState.finalPosition.y);
+            if (deltaX > ROLLBACK_THRESHOLD || deltaY > ROLLBACK_THRESHOLD)
             {
+                timeSincePositionCheck = 0f;
                 // Then client is out of sync
                 print(Mathf.Abs(calculatedState.finalPosition.x - serverState.finalPosition.x));
                 print(Mathf.Abs(calculatedState.finalPosition.y - serverState.finalPosition.y));
-
                 //Debug.Log("Correcting client positon");
                 CorrectPlayerPosition(serverState);     // Teleport player at failed tick
                 //ReplayMovesAfterTick(serverState);
             }
-            print("Inner watch");
-            innerwatch.Stop();
-            print(innerwatch.Elapsed);
         }
-        stopwatch.Stop();
-        print("Outer watch");
-        print(stopwatch.Elapsed);
 
-        previousTransformState = previousState;
+        previousTransformState = clientState;
         HandleStates.TransformStateRW newTransformState = new()
         {
             tick = tick,
@@ -202,6 +197,9 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
             Vector2 movementVector = new Vector2(moveX, moveY).normalized;
             ProcessLocalPlayerMovement(moveX, moveY);
+
+            timeSincePositionCheck += 1f;
+            print(timeSincePositionCheck);
         }
         else
         {
