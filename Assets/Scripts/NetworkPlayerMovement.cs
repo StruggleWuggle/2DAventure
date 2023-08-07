@@ -69,6 +69,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
             CorrectPlayerPosition(serverState);     // Teleport player at failed tick
             Debug.Log(rb.position);
             ReplayMovesAfterTick(serverState);
+            Debug.Log(rb.position);
         }
 
         previousTransformState = previousState;
