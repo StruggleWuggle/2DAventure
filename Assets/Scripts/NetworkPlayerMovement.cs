@@ -37,15 +37,18 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public HandleStates.TransformStateRW previousTransformState;
     private float ROLLBACK_THRESHOLD = .02f;
 
-    // Animations
-    Animator animator;
-    SpriteRenderer spriteRenderer;
-
     // Set player keys here
     KeyCode HoldToRun = KeyCode.LeftShift;
     KeyCode Attack = KeyCode.Space;
 
+    // Check for player inputs
+    float inputMoveX = 0;
+    float inputMoveY = 0;
 
+    // Animations
+    Animator animator;
+    SpriteRenderer spriteRenderer;
+    private string currentAnimationState;
     public enum animationState
     {
         Idle,
@@ -53,6 +56,14 @@ public class NetworkPlayerMovement : NetworkBehaviour
         Running,
         Attacking
     }
+
+    Dictionary<int, string> animationStateToString = new Dictionary<int, string>()
+    {
+        {(int)animationState.Idle, "player_idle" },
+        {(int)animationState.Running, "player_run" },
+        {(int)animationState.Walking, "player_walk" },
+        {(int)animationState.Attacking, "player_attack" }
+    };
 
     // Debugging
     public float timeSincePositionCheck = 0f;
@@ -210,19 +221,32 @@ public class NetworkPlayerMovement : NetworkBehaviour
         spriteRenderer = GetComponent<SpriteRenderer>();   
     }
 
+    private void Update()
+    {
+        if (IsClient && IsLocalPlayer)
+        {
+            inputMoveX = Input.GetAxisRaw("Horizontal");
+            inputMoveY = Input.GetAxisRaw("Vertical");
+        }
+    }
+
     // Update is called once per frame
     void FixedUpdate()
     {
         if (IsClient && IsLocalPlayer)
         {
-            float moveX = Input.GetAxisRaw("Horizontal");
-            float moveY = Input.GetAxisRaw("Vertical");
-
-            Vector2 movementVector = new Vector2(moveX, moveY).normalized;
-            ProcessLocalPlayerMovement(moveX, moveY);
-
-            timeSincePositionCheck += 1f;
-            //print(timeSincePositionCheck);
+            // Update player physics based on movement inputs
+            if (inputMoveX != 0 || inputMoveY != 0)
+            {
+                //UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Walking]);
+                UpdateAnimationState(animationStateToString[(int)animationState.Walking]);
+                ProcessLocalPlayerMovement(inputMoveX, inputMoveY);
+            }
+            else
+            {
+                //UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Idle]);
+                UpdateAnimationState(animationStateToString[(int)animationState.Idle]);
+            }
 
             bool isAttacking = Input.GetKey(Attack);
             if (isAttacking)
@@ -284,7 +308,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
         // Animate if moving
         if (Vector2.zero == movementVector)
         {
-            animator.SetInteger("stateManager", (int)animationState.Idle);
+            //animator.SetInteger("stateManager", (int)animationState.Idle);
             return;
         }
         else
@@ -299,12 +323,10 @@ public class NetworkPlayerMovement : NetworkBehaviour
             }
             if (Input.GetKey(HoldToRun))
             {
-                animator.SetInteger("stateManager", (int)animationState.Running);
                 movementVector = movementVector * MoveSpeed.Value * 2;
             }
             else
             {
-                animator.SetInteger("stateManager", (int)animationState.Walking);
                 movementVector = movementVector * MoveSpeed.Value;
             }
             rb.AddForce(movementVector);
@@ -340,11 +362,35 @@ public class NetworkPlayerMovement : NetworkBehaviour
         }
     }
 
+    private void UpdateAnimationState(string newAnimationState)
+    {
+        // Animation gaurd stopping the same animation from playing repeatedly
+        if (currentAnimationState == newAnimationState) return;
+
+        // Play animation
+        animator.Play(newAnimationState);
+
+        // Update current animation state
+        currentAnimationState = newAnimationState;
+    }
+
     // --- RPCs ---
     [ClientRpc]
     public void FlipSpriteClientRpc(bool flipState)
     {
         spriteRenderer.flipX = flipState;
+    }
+    [ServerRpc]
+    private void UpdateAnimationStateServerRpc(string newAnimationState)
+    {
+        // Animation gaurd stopping the same animation from playing repeatedly
+        if (currentAnimationState == newAnimationState) return;
+
+        // Play animation
+        animator.Play(newAnimationState);
+
+        // Update current animation state
+        currentAnimationState = newAnimationState;
     }
 
     [ServerRpc]
