@@ -241,11 +241,13 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             if (moveX < 0)
             {
-                spriteRenderer.flipX = true;
+                //spriteRenderer.flipX = true;
+                FlipSpriteClientRpc(true);
             }
             else
             {
-                spriteRenderer.flipX = false;
+                //spriteRenderer.flipX = false;
+                FlipSpriteClientRpc(false);
             }
             animator.SetBool("isMoving", true);
         }
@@ -284,6 +286,11 @@ public class NetworkPlayerMovement : NetworkBehaviour
     }
 
     // --- RPCs ---
+    [ClientRpc]
+    public void FlipSpriteClientRpc(bool flipState)
+    {
+        spriteRenderer.flipX = flipState;
+    }
 
     [ServerRpc]
     public void MoveServerRpc(float moveX, float moveY, int tick)
