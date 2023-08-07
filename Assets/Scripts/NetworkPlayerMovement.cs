@@ -233,11 +233,21 @@ public class NetworkPlayerMovement : NetworkBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
+        // Flip sprite if needed
+        if (inputMoveX < 0)
+        {
+            //FlipSpriteClientRpc(true);
+        }
+        else
+        {
+            //FlipSpriteClientRpc(false);
+        }
+
         if (IsClient && IsLocalPlayer)
         {
             // Update player physics based on movement inputs
             if (inputMoveX != 0 || inputMoveY != 0)
-            {
+            {   
                 //UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Walking]);
                 UpdateAnimationState(animationStateToString[(int)animationState.Walking]);
                 ProcessLocalPlayerMovement(inputMoveX, inputMoveY);
@@ -247,14 +257,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
                 //UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Idle]);
                 UpdateAnimationState(animationStateToString[(int)animationState.Idle]);
             }
-
-            bool isAttacking = Input.GetKey(Attack);
-            if (isAttacking)
-            {
-                animator.SetInteger("stateManager", (int)animationState.Attacking);
-            }
-
-
+            //bool isAttacking = Input.GetKey(Attack);
         }
         else
         {
@@ -305,32 +308,15 @@ public class NetworkPlayerMovement : NetworkBehaviour
     {
         Vector2 movementVector = new Vector2(moveX, moveY).normalized;
 
-        // Animate if moving
-        if (Vector2.zero == movementVector)
+        if (Input.GetKey(HoldToRun))
         {
-            //animator.SetInteger("stateManager", (int)animationState.Idle);
-            return;
+            movementVector = movementVector * MoveSpeed.Value * 2;
         }
         else
         {
-            if (moveX < 0)
-            {
-                FlipSpriteClientRpc(true);
-            }
-            else
-            {
-                FlipSpriteClientRpc(false);
-            }
-            if (Input.GetKey(HoldToRun))
-            {
-                movementVector = movementVector * MoveSpeed.Value * 2;
-            }
-            else
-            {
-                movementVector = movementVector * MoveSpeed.Value;
-            }
-            rb.AddForce(movementVector);
+            movementVector = movementVector * MoveSpeed.Value;
         }
+        rb.AddForce(movementVector);
     }
 
     public void UpdateOtherPlayers()
@@ -377,6 +363,11 @@ public class NetworkPlayerMovement : NetworkBehaviour
     // --- RPCs ---
     [ClientRpc]
     public void FlipSpriteClientRpc(bool flipState)
+    {
+        spriteRenderer.flipX = flipState;
+    }
+    [ServerRpc]
+    public void FlipSpriteServerRpc(bool flipState)
     {
         spriteRenderer.flipX = flipState;
     }
