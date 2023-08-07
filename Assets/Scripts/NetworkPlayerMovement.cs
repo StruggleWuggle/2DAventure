@@ -13,7 +13,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public ContactFilter2D movementFilter;
 
     // Player stats
-    public NetworkVariable<float> MoveSpeed = new NetworkVariable<float>(2f);
+    public NetworkVariable<float> MoveSpeed = new NetworkVariable<float>(8f);
     public NetworkVariable<int> Health = new NetworkVariable<int>(100);
 
     // Physics
@@ -64,7 +64,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             //Debug.Log("Correcting client positon");
             // Then client is out of sync
-            //CorrectPlayerPosition(serverState);     // Teleport player at failed tick
+            CorrectPlayerPosition(serverState);     // Teleport player at failed tick
             //ReplayMovesAfterTick(serverState);
         }
 
@@ -141,7 +141,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     }
 
     // Update is called once per frame
-    void Update()
+    void FixedUpdate()
     {
         if (IsClient && IsLocalPlayer)
         {
@@ -164,7 +164,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     }
     public void ProcessLocalPlayerMovement(float _moveX, float _moveY)
     {
-        tickDeltaTime += Time.deltaTime;
+        tickDeltaTime += Time.fixedDeltaTime;
 
         if (tickDeltaTime > tickRate)
         {
@@ -205,7 +205,10 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public void Move(float moveX, float moveY)
     {
         Vector2 movementVector = new Vector2(moveX, moveY).normalized;
-        rb.AddForce(movementVector * MoveSpeed.Value * .9f);
+        movementVector = movementVector * MoveSpeed.Value * .9f;
+        rb.AddForce(movementVector);
+        print(movementVector);
+
         //rb.velocity = movementVector * MoveSpeed.Value * tickRate * 100;
     }
 
@@ -213,7 +216,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     {
         // Method to upgate rigidbody positions of all other players
 
-        tickDeltaTime += Time.deltaTime;
+        tickDeltaTime += Time.fixedDeltaTime;
 
         if (currentServerTransformState.Value == null)
         {
@@ -221,7 +224,10 @@ public class NetworkPlayerMovement : NetworkBehaviour
         }
         if (tickDeltaTime > tickRate && currentServerTransformState.Value.isMoving)
         {
-            rb.position = currentServerTransformState.Value.finalPosition;
+            if (IsClient)
+            {
+                rb.position = currentServerTransformState.Value.finalPosition;
+            }
 
             tickDeltaTime -= tickRate;
             if (tick >= buffer)
@@ -235,7 +241,13 @@ public class NetworkPlayerMovement : NetworkBehaviour
         }
     }
 
-    // --- ServerRPCs ---
+    // --- RPCs ---
+    [ClientRpc]
+    public void SimulatePlayersClientRpc()
+    {
+        rb.position = currentServerTransformState.Value.finalPosition;
+    }
+
 
     [ServerRpc]
     public void MoveServerRpc(float moveX, float moveY, int tick)
