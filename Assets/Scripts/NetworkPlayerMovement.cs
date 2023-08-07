@@ -84,12 +84,13 @@ public class NetworkPlayerMovement : NetworkBehaviour
         float deltaY = Mathf.Abs(clientState.finalPosition.y - serverState.finalPosition.y);
         if (deltaX > ROLLBACK_THRESHOLD || deltaY > ROLLBACK_THRESHOLD)
         {
-            timeSincePositionCheck = 0f;
             // Then client is out of sync
 
             print("Correcting client positon");
+            clientState = serverState;
+            rb.position = serverState.finalPosition;
 
-            CorrectPlayerPositionClientRpc(serverState);     // Teleport player at failed tick
+            //CorrectPlayerPositionClientRpc(serverState);     // Teleport player at failed tick
         }
     }
 
@@ -172,8 +173,6 @@ public class NetworkPlayerMovement : NetworkBehaviour
             Vector2 movementVector = new Vector2(moveX, moveY).normalized;
             ProcessLocalPlayerMovement(moveX, moveY);
 
-            timeSincePositionCheck += 1f;
-            print(timeSincePositionCheck);
         }
         else
         {
@@ -282,7 +281,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
         print("Teleporting");
         // Teleport client
 
-        rb.position = correctedState.finalPosition;
+        transform.position = correctedState.finalPosition;
 
         // Find corresponding state in stored state array based on matching tick and update position value
         for (int i = 0; i < _transformStates.Length; i++)
