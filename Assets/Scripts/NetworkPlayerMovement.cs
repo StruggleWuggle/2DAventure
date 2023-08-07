@@ -13,7 +13,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public ContactFilter2D movementFilter;
 
     // Player stats
-    public NetworkVariable<float> MoveSpeed = new NetworkVariable<float>(8f);
+    public NetworkVariable<float> MoveSpeed = new NetworkVariable<float>(20f);
     public NetworkVariable<int> Health = new NetworkVariable<int>(100);
 
     // Physics
@@ -62,18 +62,19 @@ public class NetworkPlayerMovement : NetworkBehaviour
         }
         if (calculatedState != null && calculatedState.finalPosition != serverState.finalPosition)
         {
-            //Debug.Log("Correcting client positon");
             // Then client is out of sync
+            Debug.Log("Correcting client positon");
+            Debug.Log(serverState.finalPosition);
+            Debug.Log(calculatedState.finalPosition);
             CorrectPlayerPosition(serverState);     // Teleport player at failed tick
-            //ReplayMovesAfterTick(serverState);
+            Debug.Log(rb.position);
+            ReplayMovesAfterTick(serverState);
         }
 
         previousTransformState = previousState;
     }
     private void CorrectPlayerPosition(HandleStates.TransformStateRW correctedState)
     {
-        // Disable character movements TODO
-
         // Teleport client
         rb.position = correctedState.finalPosition;
 
@@ -92,26 +93,32 @@ public class NetworkPlayerMovement : NetworkBehaviour
     {
         // Get all states from stored state array that have a tick value greater than correctedState tick value
         IDictionary<int, HandleStates.InputState> stateDict = new Dictionary<int, HandleStates.InputState>();
-        int maxTickValue = 0;
+
         for (int i = 0; i < _inputStates.Length; i++)
         {
             if (_inputStates[i].tick > lastValidState.tick)
             {
                 // Append dictionary
                 stateDict[_inputStates[i].tick] = _inputStates[i];
+            }
 
-                // Update largest tick value encountered
-                if (maxTickValue == 0 || _inputStates[i].tick > maxTickValue)
-                {
-                    maxTickValue = _inputStates[i].tick;
-                }
+            // Update largest tick value encountered
+            if (_inputStates[i].tick > tick)
+            {
+                break;
             }
 
         }
 
         // Execute corresponding input states 
-        for (int i = lastValidState.tick + 1; i <= maxTickValue; i++)
+        for (int i = lastValidState.tick + 1; i <= tick; i++)
         {
+            // Check if i > 1024
+            if (i == buffer)
+            {
+                break;
+            }
+
             Move(stateDict[i].moveX, stateDict[i].moveY);
 
             // Get new transform state
@@ -147,11 +154,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             float moveX = Input.GetAxisRaw("Horizontal");
             float moveY = Input.GetAxisRaw("Vertical");
-            if (moveX != userMoveX || moveY != userMoveY)
-            {
-                //ProcessLocalPlayerMovement(moveX, moveY);
-                print("Movement change");
-            }
+
             userMoveX= moveX;
             userMoveY= moveY;
 
@@ -207,9 +210,6 @@ public class NetworkPlayerMovement : NetworkBehaviour
         Vector2 movementVector = new Vector2(moveX, moveY).normalized;
         movementVector = movementVector * MoveSpeed.Value * .9f;
         rb.AddForce(movementVector);
-        print(movementVector);
-
-        //rb.velocity = movementVector * MoveSpeed.Value * tickRate * 100;
     }
 
     public void UpdateOtherPlayers()
@@ -242,12 +242,6 @@ public class NetworkPlayerMovement : NetworkBehaviour
     }
 
     // --- RPCs ---
-    [ClientRpc]
-    public void SimulatePlayersClientRpc()
-    {
-        rb.position = currentServerTransformState.Value.finalPosition;
-    }
-
 
     [ServerRpc]
     public void MoveServerRpc(float moveX, float moveY, int tick)
