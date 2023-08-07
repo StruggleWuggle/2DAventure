@@ -182,6 +182,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
         else
         {
             UpdateOtherPlayers();
+            // TODO UPDATE OTHER PLAYER'S ANIMATIONS AS WELL
         }
     }
     public void ProcessLocalPlayerMovement(float _moveX, float _moveY)
