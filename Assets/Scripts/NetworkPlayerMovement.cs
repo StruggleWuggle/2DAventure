@@ -35,15 +35,15 @@ public class NetworkPlayerMovement : NetworkBehaviour
     // For server based rollback
     public NetworkVariable<HandleStates.TransformStateRW> currentServerTransformState = new NetworkVariable<HandleStates.TransformStateRW>(default, NetworkVariableReadPermission.Everyone);
     public HandleStates.TransformStateRW previousTransformState;
+    private float ROLLBACK_THRESHOLD = .1f;
 
     private void OnServerStateChanged(HandleStates.TransformStateRW previousState, HandleStates.TransformStateRW serverState)
     {
         // Check and reconcile local client predicted movement with server movement
-        if (!IsLocalPlayer)
+        if (!IsLocalPlayer || IsHost)
         {
             return;
         }
-        //Debug.Log("Checking client positon");
         // Edge case for first call where no previous states have been stored yet
         if (previousTransformState != null)
         {
@@ -58,24 +58,35 @@ public class NetworkPlayerMovement : NetworkBehaviour
             if (_transformStates[i] != null && _transformStates[i].tick == serverState.tick)
             {
                 calculatedState = _transformStates[i];
+                break;
             }
         }
-        if (calculatedState != null && calculatedState.finalPosition != serverState.finalPosition)
+
+        if (calculatedState != null)
         {
-            // Then client is out of sync
-            Debug.Log("Correcting client positon");
-            Debug.Log(serverState.finalPosition);
-            Debug.Log(calculatedState.finalPosition);
-            CorrectPlayerPosition(serverState);     // Teleport player at failed tick
-            Debug.Log(rb.position);
-            ReplayMovesAfterTick(serverState);
-            Debug.Log(rb.position);
+            CorrectPlayerPosition(serverState); // For some reasoning moving it into the if statement below causes a huge delay
+            if (Mathf.Abs(calculatedState.finalPosition.x - serverState.finalPosition.x) > ROLLBACK_THRESHOLD ||
+                Mathf.Abs(calculatedState.finalPosition.y - serverState.finalPosition.y) > ROLLBACK_THRESHOLD)
+            {
+                // Then client is out of sync
+                //Debug.Log("Correcting client positon");
+                //CorrectPlayerPosition(serverState);     // Teleport player at failed tick
+                //ReplayMovesAfterTick(serverState);
+            }
         }
 
         previousTransformState = previousState;
+        HandleStates.TransformStateRW newTransformState = new()
+        {
+            tick = tick,
+            finalPosition = rb.position,
+            isMoving = true,
+        };
+        //currentServerTransformState.Value = newTransformState;
     }
     private void CorrectPlayerPosition(HandleStates.TransformStateRW correctedState)
     {
+        Debug.Log("Teleporting");
         // Teleport client
         rb.position = correctedState.finalPosition;
 
@@ -97,6 +108,11 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
         for (int i = 0; i < _inputStates.Length; i++)
         {
+            if (_inputStates[i] == null)
+            {
+                continue;
+            }
+            
             if (_inputStates[i].tick > lastValidState.tick)
             {
                 // Append dictionary
@@ -254,7 +270,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
             finalPosition = rb.position,
             isMoving = true,
         };
-        // TODO
+
         // Check for packet loss by checking if tick != previousTransformState Tick + 1
         // If missed packet, send packet again
         previousTransformState = currentServerTransformState.Value;
