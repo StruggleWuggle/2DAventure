@@ -177,12 +177,13 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             float moveX = Input.GetAxisRaw("Horizontal");
             float moveY = Input.GetAxisRaw("Vertical");
+
+            Vector2 movementVector = new Vector2(moveX, moveY).normalized;
             ProcessLocalPlayerMovement(moveX, moveY);
         }
         else
         {
             UpdateOtherPlayers();
-            // TODO UPDATE OTHER PLAYER'S ANIMATIONS AS WELL
         }
     }
     public void ProcessLocalPlayerMovement(float _moveX, float _moveY)
