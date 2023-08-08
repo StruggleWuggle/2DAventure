@@ -38,12 +38,14 @@ public class NetworkPlayerMovement : NetworkBehaviour
     private float ROLLBACK_THRESHOLD = .01f;
 
     // Set player keys here
-    KeyCode HoldToRun = KeyCode.LeftShift;
-    KeyCode Attack = KeyCode.Space;
+    KeyCode RunInput = KeyCode.LeftShift;
+    KeyCode AttackInput = KeyCode.Space;
+    
 
     // Check for player inputs
-    float inputMoveX = 0;
-    float inputMoveY = 0;
+    private float inputMoveX = 0;
+    private float inputMoveY = 0;
+    private bool runDownPress = false;
 
     // Animations
     Animator animator;
@@ -109,7 +111,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
                 print("Correcting client positon");
 
                 // Teleport player and update corresponding state register
-                rb.position = serverState.finalPosition;
+                //rb.position = serverState.finalPosition;
                 // Find corresponding state in stored state array based on matching tick and update position value
                 for (int i = 0; i < _transformStates.Length; i++)
                 {
@@ -188,7 +190,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
                 break;
             }
 
-            Move(stateDict[i].moveX, stateDict[i].moveY);
+            Move(stateDict[i].moveX, stateDict[i].moveY, false); //NEED TO ACCOUNT FOR RUNNING
 
             // Get new transform state
             HandleStates.TransformStateRW updatedTransformState = new HandleStates.TransformStateRW()
@@ -227,6 +229,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             inputMoveX = Input.GetAxisRaw("Horizontal");
             inputMoveY = Input.GetAxisRaw("Vertical");
+            runDownPress = Input.GetKey(RunInput);
+            print(runDownPress);
         }
     }
 
@@ -272,8 +276,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             int bufferIndex = tick % buffer;
 
-            MoveServerRpc(_moveX, _moveY, tick);    // Send out move input to server
-            Move(_moveX, _moveY);    // Client side movement only
+            MoveServerRpc(_moveX, _moveY, tick, runDownPress);    // Send out move input to server
+            Move(_moveX, _moveY, runDownPress);    // Client side movement only
 
             // Update states and historic state array
             HandleStates.InputState inputState = new()
@@ -304,11 +308,11 @@ public class NetworkPlayerMovement : NetworkBehaviour
             }
         }
     }
-    public void Move(float moveX, float moveY)
+    public void Move(float moveX, float moveY, bool isRunning)
     {
         Vector2 movementVector = new Vector2(moveX, moveY).normalized;
 
-        if (Input.GetKey(HoldToRun))
+        if (isRunning)
         {
             movementVector = movementVector * MoveSpeed.Value * 2;
         }
@@ -385,9 +389,9 @@ public class NetworkPlayerMovement : NetworkBehaviour
     }
 
     [ServerRpc]
-    public void MoveServerRpc(float moveX, float moveY, int tick)
+    public void MoveServerRpc(float moveX, float moveY, int tick, bool isRunning)
     {
-        Move(moveX, moveY);
+        Move(moveX, moveY, isRunning);
         HandleStates.TransformStateRW transformState = new()
         {
             tick = tick,
