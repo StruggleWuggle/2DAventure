@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Unity.IO.LowLevel.Unsafe;
 using Unity.Netcode;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -92,8 +93,6 @@ public class NetworkPlayerMovement : NetworkBehaviour
             if (_transformStates[i] != null && _transformStates[i].tick == serverState.tick)
             {
                 calculatedState = _transformStates[i];
-                print(calculatedState.tick);
-                print(serverState.tick);
                 break;
             }
         }
@@ -210,14 +209,19 @@ public class NetworkPlayerMovement : NetworkBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
+        if (!IsOwner) { return; }
         // Flip sprite if needed
         if (inputMoveX < 0)
         {
             //FlipSpriteClientRpc(true);
+            spriteRenderer.flipX = true;
+            FlipSpriteServerRpc(true);
         }
-        else
+        else// if (inputMoveX > 0)
         {
             //FlipSpriteClientRpc(false);
+            spriteRenderer.flipX = false;
+            FlipSpriteServerRpc(false);
         }
 
         if (IsClient && IsLocalPlayer)
@@ -233,17 +237,13 @@ public class NetworkPlayerMovement : NetworkBehaviour
                 {
                     UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Walking]);
                 }
-
-                //UpdateAnimationState(animationStateToString[(int)animationState.Walking]);
                 ProcessLocalPlayerMovement(inputMoveX, inputMoveY);
             }
             else
             {
                 UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Idle]);
-                //UpdateAnimationState(animationStateToString[(int)animationState.Idle]);
                 UpdateOtherPlayers();
             }
-            //bool isAttacking = Input.GetKey(Attack);
         }
         else
         {
@@ -397,9 +397,13 @@ public class NetworkPlayerMovement : NetworkBehaviour
         if (tick != tickToBeCompared)
         {
             // Then packet loss has occured
-            print("Packet loss");
-            print(tick);
-            print(previousTransformState.tick + 1);
+
+            // Resend packet
+            int ticksDelta = tick - previousTransformState.tick + 1;
+            currentServerTransformState.Value = transformState;
+
+            //print(ticksDelta);
+
         }
 
     }
