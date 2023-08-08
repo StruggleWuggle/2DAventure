@@ -35,7 +35,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     // For server based rollback
     public NetworkVariable<HandleStates.TransformStateRW> currentServerTransformState = new NetworkVariable<HandleStates.TransformStateRW>(default, NetworkVariableReadPermission.Everyone);
     public HandleStates.TransformStateRW previousTransformState;
-    private float ROLLBACK_THRESHOLD = .02f;
+    private float ROLLBACK_THRESHOLD = .01f;
 
     // Set player keys here
     KeyCode HoldToRun = KeyCode.LeftShift;
@@ -249,13 +249,13 @@ public class NetworkPlayerMovement : NetworkBehaviour
             if (inputMoveX != 0 || inputMoveY != 0)
             {   
                 //UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Walking]);
-                UpdateAnimationState(animationStateToString[(int)animationState.Walking]);
+                //UpdateAnimationState(animationStateToString[(int)animationState.Walking]);
                 ProcessLocalPlayerMovement(inputMoveX, inputMoveY);
             }
             else
             {
                 //UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Idle]);
-                UpdateAnimationState(animationStateToString[(int)animationState.Idle]);
+                //UpdateAnimationState(animationStateToString[(int)animationState.Idle]);
             }
             //bool isAttacking = Input.GetKey(Attack);
         }
