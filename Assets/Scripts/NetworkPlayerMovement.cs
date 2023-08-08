@@ -133,27 +133,6 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
         previousTransformState = clientState;
     }
-    private void CorrectPlayerPosition(HandleStates.TransformStateRW correctedState)
-    {
-        print("Teleporting");
-        // Teleport client
-
-        rb.isKinematic = true;
-
-        rb.position = correctedState.finalPosition;
-
-        // Find corresponding state in stored state array based on matching tick and update position value
-        for (int i = 0; i < _transformStates.Length; i++)
-        {
-            if (_transformStates[i].tick == correctedState.tick)
-            {
-                _transformStates[i] = correctedState;
-                break;
-            }
-        }
-
-        rb.isKinematic = false;
-    }
 
     private void ReplayMovesAfterTick(HandleStates.TransformStateRW lastValidState)
     {
@@ -230,7 +209,6 @@ public class NetworkPlayerMovement : NetworkBehaviour
             inputMoveX = Input.GetAxisRaw("Horizontal");
             inputMoveY = Input.GetAxisRaw("Vertical");
             runDownPress = Input.GetKey(RunInput);
-            print(runDownPress);
         }
     }
 
@@ -260,6 +238,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
             {
                 //UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Idle]);
                 //UpdateAnimationState(animationStateToString[(int)animationState.Idle]);
+                UpdateOtherPlayers();
             }
             //bool isAttacking = Input.GetKey(Attack);
         }
