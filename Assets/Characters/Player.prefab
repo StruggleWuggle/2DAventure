@@ -187,7 +187,7 @@ MonoBehaviour:
     minNormalAngle: 0
     maxNormalAngle: 0
   MoveSpeed:
-    m_InternalValue: 2
+    m_InternalValue: 0.8
   Health:
     m_InternalValue: 100
   collisionOffset: 0
@@ -195,6 +195,7 @@ MonoBehaviour:
     m_InternalValue: {x: 0, y: 0}
   playerPosition:
     m_InternalValue: {x: 0, y: 0}
+  timeSincePositionCheck: 0
 --- !u!50 &-3535625449177568156
 Rigidbody2D:
   serializedVersion: 4

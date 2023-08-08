@@ -14,7 +14,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public ContactFilter2D movementFilter;
 
     // Player stats
-    public NetworkVariable<float> MoveSpeed = new NetworkVariable<float>(20f);
+    public NetworkVariable<float> MoveSpeed = new NetworkVariable<float>(0.8f);
     public NetworkVariable<int> Health = new NetworkVariable<int>(100);
 
     // Physics
@@ -35,16 +35,42 @@ public class NetworkPlayerMovement : NetworkBehaviour
     // For server based rollback
     public NetworkVariable<HandleStates.TransformStateRW> currentServerTransformState = new NetworkVariable<HandleStates.TransformStateRW>(default, NetworkVariableReadPermission.Everyone);
     public HandleStates.TransformStateRW previousTransformState;
-    private float ROLLBACK_THRESHOLD = .01f;
+    private float ROLLBACK_THRESHOLD = .2f;
+
+    // Set player keys here
+    KeyCode RunInput = KeyCode.LeftShift;
+    KeyCode AttackInput = KeyCode.Space;
+    
+
+    // Check for player inputs
+    private float inputMoveX = 0;
+    private float inputMoveY = 0;
+    private bool runDownPress = false;
 
     // Animations
     Animator animator;
     SpriteRenderer spriteRenderer;
+    private string currentAnimationState;
+    public enum animationState
+    {
+        Idle,
+        Walking,
+        Running,
+        Attacking
+    }
+
+    Dictionary<int, string> animationStateToString = new Dictionary<int, string>()
+    {
+        {(int)animationState.Idle, "player_idle" },
+        {(int)animationState.Running, "player_run" },
+        {(int)animationState.Walking, "player_walk" },
+        {(int)animationState.Attacking, "player_attack" }
+    };
 
     // Debugging
     public float timeSincePositionCheck = 0f;
 
-    private void OnServerStateChanged(HandleStates.TransformStateRW previousState, HandleStates.TransformStateRW newState)
+    private void OnServerStateChanged(HandleStates.TransformStateRW clientState, HandleStates.TransformStateRW serverState)
     {
         // Check and reconcile local client predicted movement with server movement
         if (!IsLocalPlayer || IsHost)
@@ -54,7 +80,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
         // Edge case for first call where no previous states have been stored yet
         if (previousTransformState == null)
         {
-            previousTransformState = newState;
+            previousTransformState = serverState;
             return;
         }
 
@@ -63,35 +89,44 @@ public class NetworkPlayerMovement : NetworkBehaviour
         HandleStates.TransformStateRW calculatedState = null;
         for (int i = 0; i < _transformStates.Length; i++)
         {
-            if (_transformStates[i] != null && _transformStates[i].tick == newState.tick)
+            if (_transformStates[i] != null && _transformStates[i].tick == serverState.tick)
             {
                 calculatedState = _transformStates[i];
+                print(calculatedState.tick);
+                print(serverState.tick);
                 break;
             }
         }
 
         if (calculatedState != null)
         {
-            ReconcileClientPosition(newState, calculatedState);
+            //timeSincePositionCheck = 0f;
+            //CorrectPlayerPosition(serverState); // For some reasoning moving it into the if statement below causes a huge delay
+            float deltaX = Mathf.Abs(calculatedState.finalPosition.x - serverState.finalPosition.x);
+            float deltaY = Mathf.Abs(calculatedState.finalPosition.y - serverState.finalPosition.y);
+            if (deltaX > ROLLBACK_THRESHOLD || deltaY > ROLLBACK_THRESHOLD)
+            {
+                timeSincePositionCheck = 0f;
+                // Then client is out of sync
+                print("Correcting client positon");
+
+                // Teleport player and update corresponding state register
+                rb.position = serverState.finalPosition;
+                // Update state array with recalculated position
+                for (int i = 0; i < _transformStates.Length; i++)
+                {
+                    if (_transformStates[i] != null && _transformStates[i].tick == serverState.tick)
+                    {
+                        _transformStates[i] = serverState;
+                        break;
+                    }
+                }
+                ReplayMovesAfterTick(serverState);
+                tick++;
+            }
         }
 
-        previousTransformState = previousState;
-    }
-
-    private void ReconcileClientPosition(HandleStates.TransformStateRW clientState, HandleStates.TransformStateRW serverState)
-    {
-        float deltaX = Mathf.Abs(clientState.finalPosition.x - serverState.finalPosition.x);
-        float deltaY = Mathf.Abs(clientState.finalPosition.y - serverState.finalPosition.y);
-        if (deltaX > ROLLBACK_THRESHOLD || deltaY > ROLLBACK_THRESHOLD)
-        {
-            // Then client is out of sync
-
-            print("Correcting client positon");
-            clientState = serverState;
-            rb.position = serverState.finalPosition;
-
-            //CorrectPlayerPositionClientRpc(serverState);     // Teleport player at failed tick
-        }
+        previousTransformState = clientState;
     }
 
     private void ReplayMovesAfterTick(HandleStates.TransformStateRW lastValidState)
@@ -129,7 +164,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
                 break;
             }
 
-            Move(stateDict[i].moveX, stateDict[i].moveY);
+            Move(stateDict[i].moveX, stateDict[i].moveY, false); //NEED TO ACCOUNT FOR RUNNING
 
             // Get new transform state
             HandleStates.TransformStateRW updatedTransformState = new HandleStates.TransformStateRW()
@@ -162,17 +197,53 @@ public class NetworkPlayerMovement : NetworkBehaviour
         spriteRenderer = GetComponent<SpriteRenderer>();   
     }
 
-    // Update is called once per frame
-    void FixedUpdate()
+    private void Update()
     {
         if (IsClient && IsLocalPlayer)
         {
-            float moveX = Input.GetAxisRaw("Horizontal");
-            float moveY = Input.GetAxisRaw("Vertical");
+            inputMoveX = Input.GetAxisRaw("Horizontal");
+            inputMoveY = Input.GetAxisRaw("Vertical");
+            runDownPress = Input.GetKey(RunInput);
+        }
+    }
 
-            Vector2 movementVector = new Vector2(moveX, moveY).normalized;
-            ProcessLocalPlayerMovement(moveX, moveY);
+    // Update is called once per frame
+    void FixedUpdate()
+    {
+        // Flip sprite if needed
+        if (inputMoveX < 0)
+        {
+            //FlipSpriteClientRpc(true);
+        }
+        else
+        {
+            //FlipSpriteClientRpc(false);
+        }
 
+        if (IsClient && IsLocalPlayer)
+        {
+            // Update player physics based on movement inputs
+            if (inputMoveX != 0 || inputMoveY != 0)
+            {   
+                if (runDownPress)
+                {
+                    UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Running]);
+                }
+                else
+                {
+                    UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Walking]);
+                }
+
+                //UpdateAnimationState(animationStateToString[(int)animationState.Walking]);
+                ProcessLocalPlayerMovement(inputMoveX, inputMoveY);
+            }
+            else
+            {
+                UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Idle]);
+                //UpdateAnimationState(animationStateToString[(int)animationState.Idle]);
+                UpdateOtherPlayers();
+            }
+            //bool isAttacking = Input.GetKey(Attack);
         }
         else
         {
@@ -187,8 +258,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             int bufferIndex = tick % buffer;
 
-            MoveServerRpc(_moveX, _moveY, tick);    // Send out move input to server
-            Move(_moveX, _moveY);    // Client side movement only
+            MoveServerRpc(_moveX, _moveY, tick, runDownPress);    // Send out move input to server
+            Move(_moveX, _moveY, runDownPress);    // Client side movement only
 
             // Update states and historic state array
             HandleStates.InputState inputState = new()
@@ -219,29 +290,18 @@ public class NetworkPlayerMovement : NetworkBehaviour
             }
         }
     }
-    public void Move(float moveX, float moveY)
+    public void Move(float moveX, float moveY, bool isRunning)
     {
         Vector2 movementVector = new Vector2(moveX, moveY).normalized;
 
-        // Animate if moving
-        if (Vector2.zero == movementVector)
+        if (isRunning)
         {
-            animator.SetBool("isMoving", false);
+            movementVector = movementVector * MoveSpeed.Value * 2;
         }
         else
         {
-            if (moveX < 0)
-            {
-                FlipSpriteClientRpc(true);
-            }
-            else
-            {
-                FlipSpriteClientRpc(false);
-            }
-            animator.SetBool("isMoving", true);
+            movementVector = movementVector * MoveSpeed.Value;
         }
-
-        movementVector = movementVector * MoveSpeed.Value * .9f;
         rb.AddForce(movementVector);
     }
 
@@ -274,35 +334,46 @@ public class NetworkPlayerMovement : NetworkBehaviour
         }
     }
 
-    // --- RPCs ---
-    [ClientRpc]
-    private void CorrectPlayerPositionClientRpc(HandleStates.TransformStateRW correctedState)
+    private void UpdateAnimationState(string newAnimationState)
     {
-        print("Teleporting");
-        // Teleport client
+        // Animation gaurd stopping the same animation from playing repeatedly
+        if (currentAnimationState == newAnimationState) return;
 
-        transform.position = correctedState.finalPosition;
+        // Play animation
+        animator.Play(newAnimationState);
 
-        // Find corresponding state in stored state array based on matching tick and update position value
-        for (int i = 0; i < _transformStates.Length; i++)
-        {
-            if (_transformStates[i].tick == correctedState.tick)
-            {
-                _transformStates[i] = correctedState;
-                break;
-            }
-        }
+        // Update current animation state
+        currentAnimationState = newAnimationState;
     }
+
+    // --- RPCs ---
     [ClientRpc]
     public void FlipSpriteClientRpc(bool flipState)
     {
         spriteRenderer.flipX = flipState;
     }
+    [ServerRpc]
+    public void FlipSpriteServerRpc(bool flipState)
+    {
+        spriteRenderer.flipX = flipState;
+    }
+    [ServerRpc]
+    private void UpdateAnimationStateServerRpc(string newAnimationState)
+    {
+        // Animation gaurd stopping the same animation from playing repeatedly
+        if (currentAnimationState == newAnimationState) return;
+
+        // Play animation
+        animator.Play(newAnimationState);
+
+        // Update current animation state
+        currentAnimationState = newAnimationState;
+    }
 
     [ServerRpc]
-    public void MoveServerRpc(float moveX, float moveY, int tick)
+    public void MoveServerRpc(float moveX, float moveY, int tick, bool isRunning)
     {
-        Move(moveX, moveY);
+        Move(moveX, moveY, isRunning);
         HandleStates.TransformStateRW transformState = new()
         {
             tick = tick,
