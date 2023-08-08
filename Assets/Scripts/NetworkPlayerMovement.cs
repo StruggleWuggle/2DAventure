@@ -35,7 +35,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
     // For server based rollback
     public NetworkVariable<HandleStates.TransformStateRW> currentServerTransformState = new NetworkVariable<HandleStates.TransformStateRW>(default, NetworkVariableReadPermission.Everyone);
     public HandleStates.TransformStateRW previousTransformState;
-    private float ROLLBACK_THRESHOLD = .05f;
+    private float ROLLBACK_THRESHOLD = .2f;
 
     // Set player keys here
     KeyCode RunInput = KeyCode.LeftShift;
@@ -112,22 +112,17 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
                 // Teleport player and update corresponding state register
                 rb.position = serverState.finalPosition;
-                // Find corresponding state in stored state array based on matching tick and update position value
+                // Update state array with recalculated position
                 for (int i = 0; i < _transformStates.Length; i++)
                 {
                     if (_transformStates[i] != null && _transformStates[i].tick == serverState.tick)
                     {
-                        //_transformStates[i+1] = serverState;
+                        _transformStates[i] = serverState;
                         break;
                     }
                 }
-
-                // Replay moves after server tick
-                //ReplayMovesAfterTick(serverState);
-
-
-                //CorrectPlayerPosition(serverState);     // Teleport player at failed tick
-                //ReplayMovesAfterTick(serverState);
+                ReplayMovesAfterTick(serverState);
+                tick++;
             }
         }
 
