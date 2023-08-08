@@ -242,7 +242,10 @@ public class NetworkPlayerMovement : NetworkBehaviour
     void FixedUpdate()
     {
         // Update facing position
-        UpdateFacingPositionServerRpc(inputMoveX, inputMoveY);
+        if (IsOwner)
+        {
+            UpdateFacingPositionServerRpc(inputMoveX, inputMoveY);
+        }
 
         // Flip sprite owned by client and update the same sprite server side
         if (inputMoveX < 0)
@@ -280,7 +283,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
             else
             {
                 UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Idle]);
-                UpdateOtherPlayers();
+                //UpdateOtherPlayers();
+                tick++;
             }
         }
         else
@@ -296,8 +300,14 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {
             int bufferIndex = tick % buffer;
 
-            MoveServerRpc(_moveX, _moveY, tick, runDownPress);    // Send out move input to server
-            Move(_moveX, _moveY, runDownPress);    // Client side movement only
+            if (IsOwner)
+            {
+                MoveServerRpc(_moveX, _moveY, tick, runDownPress);    // Send out move input to server
+            }
+            if (!IsHost)
+            {
+                Move(_moveX, _moveY, runDownPress);    // Client side movement only
+            }
 
             // Update states and historic state array
             HandleStates.InputState inputState = new()
