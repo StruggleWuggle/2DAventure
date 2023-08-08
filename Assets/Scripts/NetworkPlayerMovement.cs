@@ -18,9 +18,10 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public NetworkVariable<float> MoveSpeed = new NetworkVariable<float>(0.8f);
     public NetworkVariable<int> Health = new NetworkVariable<int>(100);
 
+    public NetworkVariable<Vector2> FacingDirection = new NetworkVariable<Vector2>();
+
     // Physics
     public float collisionOffset = 0f;
-    public NetworkVariable<Vector2> facingDirection;
     public NetworkVariable<Vector2> playerPosition;
 
     // Client prediction
@@ -70,7 +71,42 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
     // Debugging
     public float timeSincePositionCheck = 0f;
+    private void OnEnable()
+    {
+        currentServerTransformState.OnValueChanged += OnServerStateChanged;
+        FacingDirection.OnValueChanged += OnFacingDirectionChanged;
+    }
+    private void OnFacingDirectionChanged(Vector2 originalDirection, Vector2 newDirection)
+    {
+        // When new facing direction detected, go through all client instances and update the sprites
 
+        if (originalDirection == newDirection) { return; } // Only execute if new facing direction
+
+        // Only update sprites if moving in a direction
+        if (newDirection.x != 0)
+        {
+            // Get facing direction
+            bool isFacingRight = true;
+            if (newDirection.x > 0)
+            {
+                isFacingRight = true;
+            }
+            else if (newDirection.x < 0)
+            {
+                isFacingRight = false;
+            }
+
+            // Update sprite on all clients
+            if (isFacingRight)
+            {
+                FlipSpriteClientRpc(false);
+            }
+            else
+            {
+                FlipSpriteClientRpc(true);
+            }
+        }
+    }
     private void OnServerStateChanged(HandleStates.TransformStateRW clientState, HandleStates.TransformStateRW serverState)
     {
         // Check and reconcile local client predicted movement with server movement
@@ -186,10 +222,6 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
     }
 
-    private void OnEnable()
-    {
-        currentServerTransformState.OnValueChanged += OnServerStateChanged;
-    }
     private void Start()
     {
         animator = GetComponent<Animator>();
@@ -209,19 +241,25 @@ public class NetworkPlayerMovement : NetworkBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
-        if (!IsOwner) { return; }
-        // Flip sprite if needed
+        // Update facing position
+        UpdateFacingPositionServerRpc(inputMoveX, inputMoveY);
+
+        // Flip sprite owned by client and update the same sprite server side
         if (inputMoveX < 0)
         {
-            //FlipSpriteClientRpc(true);
             spriteRenderer.flipX = true;
-            FlipSpriteServerRpc(true);
+            if (IsOwner)
+            {
+                FlipSpriteServerRpc(true);
+            }
         }
-        else// if (inputMoveX > 0)
+        else if (inputMoveX > 0)
         {
-            //FlipSpriteClientRpc(false);
             spriteRenderer.flipX = false;
-            FlipSpriteServerRpc(false);
+            if (IsOwner)
+            {
+                FlipSpriteServerRpc(false);
+            }
         }
 
         if (IsClient && IsLocalPlayer)
@@ -406,5 +444,10 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
         }
 
+    }
+    [ServerRpc]
+    private void UpdateFacingPositionServerRpc(float x, float y)
+    {
+        FacingDirection.Value = new Vector2(x, y).normalized;
     }
 }
