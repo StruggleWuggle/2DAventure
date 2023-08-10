@@ -9,10 +9,10 @@ using UnityEngine;
 
 public class NetworkPlayerMovement : NetworkBehaviour
 {
-    // References
-    //public NetworkVariable<Rigidbody2D> rb;
+    // --- References ---
     public Rigidbody2D rb;
     public ContactFilter2D movementFilter;
+    public SwordAttack swordAttack;
 
     // Player stats
     public NetworkVariable<float> MoveSpeed = new NetworkVariable<float>(0.8f);
@@ -66,7 +66,9 @@ public class NetworkPlayerMovement : NetworkBehaviour
         Idle,
         Walking,
         Running,
-        Attacking
+        AttackingNeutral,
+        AttackingUp,
+        AttackingDown
     }
 
     Dictionary<int, string> animationStateToString = new Dictionary<int, string>()
@@ -74,7 +76,9 @@ public class NetworkPlayerMovement : NetworkBehaviour
         {(int)animationState.Idle, "player_idle" },
         {(int)animationState.Running, "player_run" },
         {(int)animationState.Walking, "player_walk" },
-        {(int)animationState.Attacking, "player_attack" }
+        {(int)animationState.AttackingNeutral, "player_attack" },
+        {(int)animationState.AttackingUp, "player_attack_up" },
+        {(int)animationState.AttackingDown, "player_attack_down" }
     };
 
     // --- General ---
@@ -108,10 +112,11 @@ public class NetworkPlayerMovement : NetworkBehaviour
             return;
         }
         lockAnimation = true;
-        float attackAnimationTime = animator.GetCurrentAnimatorStateInfo(0).length;
+        //float attackAnimationTime = animator.GetCurrentAnimatorStateInfo(0).length;
 
         // Play attack animation
-        UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Attacking]);
+        UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.AttackingNeutral]);
+        swordAttack.StartAttack(FacingDirection.Value); // Create attack hitbox
 
         Invoke("DefaultAttackComplete", DEFAULT_ATTACK_TIME);
         //UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Idle]); // Return to idle
@@ -136,7 +141,7 @@ public class NetworkPlayerMovement : NetworkBehaviour
         // Flip sprite owned by client and update the same sprite server side
         if (IsOwner)
         {
-            UpdateFacingPositionServerRpc(inputMoveX, inputMoveY);
+            UpdateFacingDirectionServerRpc(inputMoveX, inputMoveY);
 
             // Execute player inputs. Movements have lower priority
             if (inputAttack)
@@ -479,8 +484,13 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
     }
     [ServerRpc]
-    private void UpdateFacingPositionServerRpc(float x, float y)
+    private void UpdateFacingDirectionServerRpc(float x, float y)
     {
-        FacingDirection.Value = new Vector2(x, y).normalized;
+        Vector2 currentFacingDirection = new Vector2(x, y).normalized;
+
+        if (currentFacingDirection != Vector2.zero && currentFacingDirection != FacingDirection.Value)
+        {
+            FacingDirection.Value = currentFacingDirection;
+        }
     }
 }
