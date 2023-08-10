@@ -405,6 +405,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
     public void MoveServerRpc(float moveX, float moveY, int tick, bool isRunning)
     {
         Move(moveX, moveY, isRunning);
+
+        // Create new positional state
         HandleStates.TransformStateRW transformState = new()
         {
             tick = tick,
@@ -428,13 +430,8 @@ public class NetworkPlayerMovement : NetworkBehaviour
         if (tick != tickToBeCompared)
         {
             // Then packet loss has occured
-
             // Resend packet
-            int ticksDelta = tick - previousTransformState.tick + 1;
             currentServerTransformState.Value = transformState;
-
-            //print(ticksDelta);
-
         }
 
     }
