@@ -190,12 +190,12 @@ MonoBehaviour:
     m_InternalValue: 0.8
   Health:
     m_InternalValue: 100
-  collisionOffset: 0
-  facingDirection:
+  FacingDirection:
     m_InternalValue: {x: 0, y: 0}
+  collisionOffset: 0
   playerPosition:
     m_InternalValue: {x: 0, y: 0}
-  timeSincePositionCheck: 0
+  DEFAULT_ATTACK_TIME: 0
 --- !u!50 &-3535625449177568156
 Rigidbody2D:
   serializedVersion: 4

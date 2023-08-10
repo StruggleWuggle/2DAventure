@@ -51,10 +51,16 @@ public class NetworkPlayerMovement : NetworkBehaviour
     private bool runDownPress = false;
     private bool lockAnimation = false;
 
+    // Input and animation lock delays
+    [SerializeField]
+    private float DEFAULT_ATTACK_TIME = 0.1f;
+
     // Animations
     Animator animator;
     SpriteRenderer spriteRenderer;
     private string currentAnimationState;
+
+
     public enum animationState
     {
         Idle,
@@ -88,19 +94,60 @@ public class NetworkPlayerMovement : NetworkBehaviour
 
             if (Input.GetKey(AttackInput))
             {
-                lockAnimation = true;
                 inputAttack = true;
             }
         }
     }
 
+    private void DefaultAttack()
+    {
+        inputAttack = false;
+
+        if (lockAnimation)
+        {
+            return;
+        }
+        lockAnimation = true;
+        float attackAnimationTime = animator.GetCurrentAnimatorStateInfo(0).length;
+
+        // Play attack animation
+        UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Attacking]);
+
+        Invoke("DefaultAttackComplete", DEFAULT_ATTACK_TIME);
+        //UpdateAnimationStateServerRpc(animationStateToString[(int)animationState.Idle]); // Return to idle
+
+        inputAttack = false;
+    }
+
+    private void DefaultAttackComplete()
+    {
+        lockAnimation = false;
+    }
+
     // Update is called once per frame
     void FixedUpdate()
     {
+        // Update other player sprites
+        if (!IsLocalPlayer)
+        {
+            UpdateOtherPlayers();
+        }
+
         // Flip sprite owned by client and update the same sprite server side
         if (IsOwner)
         {
             UpdateFacingPositionServerRpc(inputMoveX, inputMoveY);
+
+            // Execute player inputs. Movements have lower priority
+            if (inputAttack)
+            {
+                DefaultAttack();
+            }
+        }
+
+        if (lockAnimation)
+        {
+            return;
         }
 
         // Execute player movement on both client and server side. Also update animations with run or walk animations
@@ -125,10 +172,6 @@ public class NetworkPlayerMovement : NetworkBehaviour
                 //UpdateOtherPlayers();
                 tick++;
             }
-        }
-        else
-        {
-            UpdateOtherPlayers();
         }
     }
    
